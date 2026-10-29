@@ -138,6 +138,37 @@ class Base
 			readyToRender = false;
 		}
 
+#if defined(IDLE_OFF_TIMEOUT)
+		// timestamp of the last good frame and whether the strip was blanked since then
+		unsigned long lastFrameTime = 0;
+		bool idleBlanked = true;
+		uint16_t idleBlankCount = 0;
+
+		inline void markFrame(unsigned long currentTime)
+		{
+			lastFrameTime = currentTime;
+			idleBlanked = false;
+		}
+
+		/**
+		 * @brief Turn off the LEDs once if no good frame arrived for IDLE_OFF_TIMEOUT ms
+		 *
+		 * @param currentTime
+		 */
+		inline void blankOnIdle(unsigned long currentTime)
+		{
+			if (!idleBlanked && ledStrip1 != nullptr && currentTime - lastFrameTime > IDLE_OFF_TIMEOUT)
+			{
+				idleBlanked = true;
+				idleBlankCount++;
+				ledStrip1->ClearTo(0);
+				if (ledStrip2 != nullptr)
+					ledStrip2->ClearTo(0);
+				renderLeds(true);
+			}
+		}
+#endif
+
 		inline void renderLeds(bool newFrame)
 		{
 			if (newFrame)

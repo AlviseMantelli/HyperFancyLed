@@ -93,6 +93,12 @@ void processData()
 		frameState.setState(AwaProtocol::HEADER_A);
 	}
 
+	#if defined(IDLE_OFF_TIMEOUT)
+		// blank the strip if the host went silent, but never in the middle of a frame
+		if (frameState.getState() == AwaProtocol::HEADER_A && base.queueCurrent == base.queueEnd)
+			base.blankOnIdle(currentTime);
+	#endif
+
 	// render waiting frame if available
 	if (base.hasLateFrameToRender())
 		base.renderLeds(false);
@@ -169,6 +175,10 @@ void processData()
 			else if (frameState.getCount() ==  0x2aa2 && (input == 0x15 || input == 0x35))
 			{
 				statistics.print(currentTime, base.processDataHandle, base.processSerialHandle);
+
+				#if defined(IDLE_OFF_TIMEOUT)
+					SerialPort.printf("Idle off: %u, last frame: %lu ms ago\r\n", base.idleBlankCount, currentTime - base.lastFrameTime);
+				#endif
 
 				if (input == 0x15)
 					SerialPort.println(HELLO_MESSAGE);
@@ -283,6 +293,10 @@ void processData()
 				currentTime = millis();
 				deltaTime = currentTime - statistics.getStartTime();
 				updateMainStatistics(currentTime, deltaTime, true);
+
+				#if defined(IDLE_OFF_TIMEOUT)
+					base.markFrame(currentTime);
+				#endif
 
 				yield();
 			}

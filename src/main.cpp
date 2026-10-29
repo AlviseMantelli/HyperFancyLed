@@ -59,7 +59,13 @@
 #endif
 #pragma message(VAR_NAME_VALUE(SERIALCOM_SPEED))
 
-#if defined(ARDUINO_LOLIN_S2_MINI)
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+	#ifdef NEOPIXEL_RGBW
+		#define LED_DRIVER NeoPixelBus<NeoGrbwFeature, NeoEsp32Rmt0Sk6812Method>
+	#elif NEOPIXEL_RGB
+		#define LED_DRIVER NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt0Ws2812xMethod>
+	#endif
+#elif defined(ARDUINO_LOLIN_S2_MINI)
 	#ifdef NEOPIXEL_RGBW
 		#define LED_DRIVER NeoPixelBus<NeoGrbwFeature, NeoEsp32I2s0Sk6812Method>
 	#elif NEOPIXEL_RGB
@@ -155,6 +161,7 @@
 		public:
 		bool CanShow() {return true;}
 		void Show(bool safe) {}
+		void ClearTo(int color) {}
 	};
 #endif
 
@@ -182,7 +189,12 @@ void processDataTask(void * parameters)
 {
 	for(;;)
 	{
-		xSemaphoreTake(base.i2sXSemaphore, portMAX_DELAY);
+		#if defined(IDLE_OFF_TIMEOUT)
+			// wake up periodically even without data, so the idle timeout can fire
+			xSemaphoreTake(base.i2sXSemaphore, pdMS_TO_TICKS(100));
+		#else
+			xSemaphoreTake(base.i2sXSemaphore, portMAX_DELAY);
+		#endif
 		processData();
 	}
 }
@@ -199,7 +211,11 @@ void processSerialTask(void * parameters)
 
 void setup()
 {
-	bool multicore = true;
+	#if defined(CONFIG_IDF_TARGET_ESP32C3)
+		bool multicore = false; // single core
+	#else
+		bool multicore = true;
+	#endif
 
 	// Init serial port
 	Serial.setRxBufferSize(MAX_BUFFER - 1);
